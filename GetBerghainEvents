@@ -1,0 +1,69 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 30 11:18:18 2017
+
+@author: benjamin-wuthe
+"""
+
+
+#imports
+from bs4 import BeautifulSoup
+import requests 
+
+yr = date.today().year
+mon = date.today().month
+
+for i in range (0,2) :
+    strMon = str(yr) +"-"+str(mon)
+    
+    #create url
+    url = "http://berghain.de/events/" + strMon
+    
+    # create response object
+    r = requests.get(url)
+    
+    # als HTML txt parsen
+    html =  r.text
+    
+    # BS obj. erstellen
+    soup = BeautifulSoup(html)
+    
+    # Alle Infos bekommen und in Liste fügen
+    #titel = soup.find_all('title')
+    print(soup.title.string)
+    print("---------------------------------------------")
+    
+    dataSet=soup.find_all("p",{"class:","type_dancefloor_color"})
+    
+    for data in dataSet:
+    
+           bhstr=""
+           pbstr =""
+        #aufteilen
+        #BH List
+           if "Berghain" in data.text:
+               bhstr = data.text.split("Berghain")
+               bhstr = bhstr[1]
+           #PB List
+           
+           if "Panorama Bar" in bhstr:
+               sep = bhstr.split("Panorama Bar")
+               bhstr = sep[0]
+               pbstr = sep[1]
+               
+       # if not bhstr:
+           if bhstr:
+               print("BERGHAIN:" + bhstr)
+           print
+           if pbstr:
+               print("PANORAMA BAR:" + pbstr)
+               
+               
+    print ("=============================================")
+    if mon==int(12):
+        yr=yr+1
+        mon =1
+    else:
+        mon=mon+1
+           
