@@ -1,0 +1,25 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 30 18:20:47 2017
+
+@author: benjamin-wuthe
+"""
+
+import requests
+from bs4 import BeautifulSoup
+
+url='http://www.plz-postleitzahl.de/land.berlin/berlin/index.html'
+r=requests.get(url)
+
+soup = BeautifulSoup(r.text)
+soup.prettify()
+
+dataset=soup.find_all("a")
+
+for data in dataset:
+    try:
+        if long(data.text)>10000:
+            print(data.text)
+    except:
+        pass
