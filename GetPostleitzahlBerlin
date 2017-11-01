@@ -8,6 +8,8 @@ Created on Mon Oct 30 18:20:47 2017
 
 import requests
 from bs4 import BeautifulSoup
+import pandas as pd
+
 
 url='http://www.plz-postleitzahl.de/land.berlin/berlin/index.html'
 r=requests.get(url)
@@ -15,11 +17,28 @@ r=requests.get(url)
 soup = BeautifulSoup(r.text)
 soup.prettify()
 
-dataset=soup.find_all("a")
+#links=soup.find_all("a")
 
+#for link in links:
+#    print("<a href='%s'>%s</a>" %(link.get("href"), link.text))
+    
+dataset=soup.find_all("a")
+#areas=["Postleitzahlen"]
+#myarr= areas[0]
+myarr=""
 for data in dataset:
     try:
         if long(data.text)>10000:
-            print(data.text)
+            myarr = data.text+ ", " +myarr 
+            #ar.add(data.text)
+            #print(data.text)
     except:
         pass
+
+myarr= myarr.split(", ")
+
+print(myarr)
+df = pd.DataFrame(myarr, columns=["Berliner_PLZ"])
+
+
+df.to_csv('Plz.csv', index=False)
