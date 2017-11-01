@@ -10,6 +10,7 @@ Created on Mon Oct 30 11:18:18 2017
 #imports
 from bs4 import BeautifulSoup
 import requests 
+from datetime import date
 
 yr = date.today().year
 mon = date.today().month
