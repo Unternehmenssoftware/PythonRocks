@@ -6,20 +6,52 @@ Created on Thu Nov  2 08:18:28 2017
 @author: benjamin-wuthe
 """
 
-
 from bs4 import BeautifulSoup
 import requests
+import pandas as pd
 
-lookingFor =  "Schule"
-plz = "10245"
+readerPLZ = pd.read_excel("Berliner PLZ.xlsx")
 
-url = "https://www.gelbeseiten.de/" + lookingFor + "/berlin,," + plz 
+df = pd.DataFrame(readerPLZ)
 
-r = requests.get(url)
+for index, row in df.iterrows():
+   print row['Berliner PLZ']
+    
+lookingFor = ['Schule','Arzt','Bar']
 
-html = r.text
-soup = BeautifulSoup(html)
+Anzahl=[]
+PlzList=[]
+SuchObjekt=[]
 
-result = soup.find_all("span",{"class:", "gs_titel_anzahlTreffer"})
+for element in lookingFor:
+#Die gesuchten Objekte durchgehen   
+    for index, row in df.iterrows():
+#Die PLZ durchgehen
 
-print(result[0].text)
+        try: 
+            url = "https://www.gelbeseiten.de/" + element + "/berlin,," + str(row['Berliner PLZ'])
+
+            r = requests.get(url)
+
+            html = r.text
+    
+            soup = BeautifulSoup(html)
+            
+            result = soup.find_all("span",{"class:", "gs_titel_anzahlTreffer"})
+            
+            print(element + "  in  " + str(row['Berliner PLZ']))
+            print ( result[0].text)
+
+            Anzahl.append(result[0].text)
+            PlzList.append(row['Berliner PLZ'])
+            SuchObjekt.append(element)
+            
+        except:
+            pass
+            
+print "------------------------------------------------------------------"
+            
+df = pd.DataFrame({'PLZ' : PlzList, 'Anzahl' : Anzahl, 'SuchObjekt': SuchObjekt})
+writer=pd.ExcelWriter('PLZ_2.xlsx')
+df.to_excel(writer,'PLZ_KPI')
+writer.save()
