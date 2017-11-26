@@ -12,18 +12,21 @@ import pandas as pd
 
 readerPLZ = pd.read_excel("Berliner PLZ.xlsx")
 
-df = pd.DataFrame(readerPLZ)
+df = pd.DataFrame(readerPLZ[:])
 
 for index, row in df.iterrows():
    print row['Berliner PLZ']
     
-lookingFor = ['Schule','Arzt','Bar']
+lookingFor = ['Supermarkt','Arzt']
+
 
 Anzahl=[]
 PlzList=[]
 SuchObjekt=[]
 
 for element in lookingFor:
+    
+    #print element + ' an Index ' + str(lookingFor.index(element) +"\n\n")
 #Die gesuchten Objekte durchgehen   
     for index, row in df.iterrows():
 #Die PLZ durchgehen
@@ -40,18 +43,28 @@ for element in lookingFor:
             result = soup.find_all("span",{"class:", "gs_titel_anzahlTreffer"})
             
             print(element + "  in  " + str(row['Berliner PLZ']))
-            print ( result[0].text)
+            
+            if result[0]<=0:
+                print "Gibts nicht"
+            else:
+                print ( result[0].text)
 
             Anzahl.append(result[0].text)
             PlzList.append(row['Berliner PLZ'])
-            SuchObjekt.append(element)
+            SuchObjekt.append(element) 
             
         except:
             pass
             
 print "------------------------------------------------------------------"
-            
+
 df = pd.DataFrame({'PLZ' : PlzList, 'Anzahl' : Anzahl, 'SuchObjekt': SuchObjekt})
+
+PlzList.append(df)
+
+#df.({'Anhang':PlzList})
+
+print df
 writer=pd.ExcelWriter('PLZ_2.xlsx')
 df.to_excel(writer,'PLZ_KPI')
 writer.save()
