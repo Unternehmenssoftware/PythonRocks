@@ -1,0 +1,136 @@
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+from collections import OrderedDict
+
+immoType = ['Wohnung', 'Haus'];
+sellType = ['Kauf', 'Miete'];
+
+ID = []
+zipCode = []
+title = []
+address = []
+district = []
+neighboorhood = []
+coldrent = []
+squaremeter = []
+rooms = []
+immos = []
+sells = []
+
+for immo in immoType:
+    for sell in sellType: 
+
+        for page in range(31,51):
+            if page==1:
+                url='https://www.immobilienscout24.de/Suche/S-T/'+immo+'-'+sell+'/Berlin/Berlin?enteredFrom=one_step_search'
+        
+            url='https://www.immobilienscout24.de/Suche/S-T/P-'+ str(page) +'/'+immo+'-'+sell+'/Berlin/Berlin'
+            r=requests.get(url)
+            soup=BeautifulSoup(r.text, 'lxml')
+            dataset=soup.find_all("li")    
+            print(immo + ' ' + sell +' >>> Page ' + str(page))
+        
+            for data in dataset:
+                try:
+                    expose_ID=(data.get('data-id'))
+                   
+                    if expose_ID == "www.immobilienscout.de":
+                        continue
+                    else:     
+                        url = 'https://www.immobilienscout24.de/Suche/controller/exposeNavigation/goToExpose.go?exposeId=' + expose_ID + '&searchUrl=%2FSuche%2FS-T%2F'+immo+'-'+sell+'%2FBerlin%2FBerlin&referrer=RESULT_LIST_LISTING&hasNext=true&hasPrev=true'
+                        r=requests.get(url)
+                        soup=BeautifulSoup(r.text, 'lxml')
+                        zipCode.append(((soup.find_all("span", {"class:", "zip-region-and-country"})[0].text).split(" "))[0])
+                        ID.append(expose_ID)
+                        
+                        try:
+                            preaddress=data.contents[0].find_all("div", {"class:", "result-list-entry__address"})[0].text         
+                            if preaddress.count(",") == 1:
+                                preaddress= "a , "+preaddress
+                            address_1=preaddress.split(",")
+                            if (len(address_1[0])<=2):
+                                address.append("Null")
+                            else:
+                                address.append(address_1[0])
+                            
+                            mainCriteria=soup.find_all("div", {"class:", "criteriagroup flex flex--wrap main-criteria-container"})[0].text 
+                            mainCriteria=mainCriteria.split(' ')
+                            if sell == 'Miete':
+                                coldrent.append(mainCriteria[3])
+                                rooms.append(mainCriteria[12])
+                                squaremeter.append(mainCriteria[20])
+                            else:
+                                coldrent.append(mainCriteria[4])
+                                rooms.append(mainCriteria[15])
+                                squaremeter.append(mainCriteria[23])
+                            
+                            immos.append(immo)
+                            sells.append(sell)
+                            
+                        except IndexError:
+                            pass
+                        try:    
+                            predistrict=address_1[1].split("(")
+                            if (len(predistrict[0])==0):
+                                neighboorhood.append("Null")
+                            else:
+                                neighboorhood.append(predistrict[0])
+                        except:
+                            pass
+                        try:    
+                            if predistrict[1] is None:
+                                district.append(neighboorhood)
+                            else:
+                                district.append((predistrict[1])[:-1])
+                        except IndexError:
+                            district.append("Null")
+                            pass
+                except:
+                    pass
+
+#Converting String to Float
+coldrent_float = [(i.replace('.' ,"")) for i in coldrent]    
+coldrent_float = [(i.replace(',' ,'.')) for i in coldrent_float]    
+coldrent_float = [float(i) for i in coldrent_float]    
+squaremeter_float = [(i.replace('.' ,"")) for i in squaremeter]    
+squaremeter_float = [(i.replace(',' ,'.')) for i in squaremeter_float]    
+squaremeter_float = [float(i) for i in squaremeter_float]
+rooms_float = [(i.replace('.' ,"")) for i in rooms]    
+rooms_float = [(i.replace(',' ,'.')) for i in rooms_float]    
+rooms_float = [float(i) for i in rooms_float]
+
+#Create Dataframe        
+df=pd.DataFrame( OrderedDict ({'ID': ID,
+                 'Type': immos,
+                 'Sell': sells,
+                 'Zip Code': zipCode,
+                 'Address': address,
+                 'Neighborhood': neighboorhood,
+                 'District': district,
+                 'Coldrent': coldrent_float,
+                 'Squaremeter': squaremeter_float,
+                 'Rooms': rooms_float}))
+
+#Save new entries to Excel-File
+writer = pd.ExcelWriter('Immo_NewEntries.xlsx')
+df.to_excel(writer,'Immo', index=False)
+writer.save()   
+
+df=pd.read_excel('Immo_NewEntries.xlsx')
+df2=pd.read_excel('Immo_Dataset.xlsx')
+
+#Combine Datasets and clean data
+df3=pd.concat([df,df2])
+df3=df3.drop_duplicates(['ID'])
+#df3 = df3[(df3['Coldrent'].str.contains('-'))!=True]
+df3 = df3[(df3['District'].str.contains('Null'))!=True]
+
+#Save combined Dataset without duplicates
+writer = pd.ExcelWriter('Immo_Dataset.xlsx')
+df3.to_excel(writer,'Immo', index=False)
+workbook = writer.book
+worksheet = writer.sheets['Immo']
+worksheet.set_column('A:J', 15)
+worksheet.set_column('E:E', 20)
+writer.save()
