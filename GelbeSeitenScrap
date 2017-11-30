@@ -1,39 +1,53 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Created on Thu Nov  2 08:18:28 2017
+Created on Tue Nov 28 21:44:50 2017
 
 @author: benjamin-wuthe
 """
+
 
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
 
+ergProSeite = 15 #Anzahl der Suchergebnisse die auf Gelbeseiten.de abgebildet werden
+
 readerPLZ = pd.read_excel("Berliner PLZ.xlsx")
 
-df = pd.DataFrame(readerPLZ[:])
-
-for index, row in df.iterrows():
-   print row['Berliner PLZ']
+df = pd.DataFrame(readerPLZ[:3])
+dfObject = pd.DataFrame()
+#for index, row in df.iterrows():
+#   print row['Berliner PLZ']
     
-lookingFor = ['Supermarkt','Arzt']
+lookingFor = ['Arzt', 'Supermarkt'] 
 
 
 Anzahl=[]
 PlzList=[]
 SuchObjekt=[]
 
+#Objekt zusammenstellen
+objSuche=[]
+objName=[]
+objStreetAdress=[]
+objPLZ=[]
+objBranche=[]
+objZipCode=[]
+
 for element in lookingFor:
-    
+    print('Untersuche Branche: ' + element)
     #print element + ' an Index ' + str(lookingFor.index(element) +"\n\n")
 #Die gesuchten Objekte durchgehen   
     for index, row in df.iterrows():
 #Die PLZ durchgehen
-
+        
+        pageCount =1
+        
+        
         try: 
-            url = "https://www.gelbeseiten.de/" + element + "/berlin,," + str(row['Berliner PLZ'])
-
+            
+            url = "https://www.gelbeseiten.de/" + element + "/berlin,," + str(row['Berliner PLZ']) + "/s" + str(pageCount)
             r = requests.get(url)
 
             html = r.text
@@ -41,8 +55,33 @@ for element in lookingFor:
             soup = BeautifulSoup(html)
             
             result = soup.find_all("span",{"class:", "gs_titel_anzahlTreffer"})
+            print('   Untersuche PLZ: ' + str(row['Berliner PLZ']) + '   Anzahl: ' + str(result[0].text))
+            if result > pageCount:
+                print ('!!! ' + result + ' !!!')
             
-            print(element + "  in  " + str(row['Berliner PLZ']))
+            #anzahlSeiten = round((result/ergProSeite))
+
+            # Objekt definieren
+            
+            resultObjekt = soup.find_all("div",{"class:", "table"})
+            for dt in resultObjekt: # die einzelnen Objekte durchgehen
+
+                try:
+                    if  (str(row['Berliner PLZ'])== dt.find(itemprop="postalCode").text):
+# Werbung umgehen, diese befindet sich grundsätzlich in anderen PLZ Gebieten
+                        objName.append (dt.find(itemprop="name").text)
+                        objSuche.append (element)
+                        objStreetAdress.append(dt.find(itemprop="streetAddress").text)
+                        objPLZ.append (str(row['Berliner PLZ']))
+#Branche definieren
+                        resBranche = dt.find("div",{"class","branchen_box"})
+                        
+                        objBranche.append(resBranche.find('span').text)
+                       
+# Ojekte in Dataframe hinzufügen
+                        dfObject =pd.DataFrame({'Branch':objBranche ,'SuchObjekt' : objSuche,'Name':objName,'StreetAdress':objStreetAdress,'ZipCode':objPLZ})
+                except:
+                    pass
             
             if result[0]<=0:
                 print "Gibts nicht"
@@ -64,7 +103,8 @@ PlzList.append(df)
 
 #df.({'Anhang':PlzList})
 
-print df
-writer=pd.ExcelWriter('PLZ_2.xlsx')
-df.to_excel(writer,'PLZ_KPI')
+writer=pd.ExcelWriter('GelbeScrape.xlsx')
+dfObject.to_excel(writer,'PLZ_KPI')
 writer.save()
+
+print ('done!')
