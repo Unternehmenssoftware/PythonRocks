@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 
 #load data
 url='https://raw.githubusercontent.com/Datenschule/schulscraper-data/master/schools/berlin.json'
@@ -11,34 +12,26 @@ del data[-1]
 schools = []
 for art in data:
     schools.append([art['id'],art['address'],art['school_type_entity']])
-    
-#filter out the adress
-adress = []
-for key in data:
-    adress.append(key['address'])
 
-#split the adress
-adress_split = []    
-for entry in adress:    
-    adress_split.append(entry.split(','))
 
-#filter out the plz
-plz_list = []
-for plz in adress_split:
-    plz_list.append(plz[1])
+#schools in Dataframe
+df = pd.DataFrame(schools, columns=['ID','Address','School_type'])
 
-#delete the first space    
-plz_list = [i.strip(' ') for i in plz_list]
+#split address to PLZ
+df['PLZ'] = df.Address.str.split(', ').str.get(1)
+
+#remove 'Berlin'
+df['PLZ'] = df['PLZ'].str.rstrip(' Berlin')
 
 #delete the unknown data
-for k in plz_list:
-    if k == 'undefined Berlin':
-        plz_list.remove('undefined Berlin')
-#delete some data, that actually doesn't exist       
-del plz_list[1028]        
+df = df[df.PLZ != 'undefined']
 
-#count all the different plz
-counter=set(plz_list)
-result={}
-for x in counter:
-    result[x] = plz_list.count(x)
+#drop column Address
+df = df.drop('Address', 1)
+
+#save in Excel
+writer = pd.ExcelWriter('scrabSchools_JSON.xlsx', engine='xlsxwriter')
+df.to_excel(writer, sheet_name='Schools', index=False)
+worksheet = writer.sheets['Schools']
+worksheet.set_column('B:B', 35)
+writer.save()
