@@ -13,7 +13,6 @@ schools = []
 for art in data:
     schools.append([art['id'],art['address'],art['school_type_entity']])
 
-
 #schools in Dataframe
 df = pd.DataFrame(schools, columns=['ID','Address','School_type'])
 
