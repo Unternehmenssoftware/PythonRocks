@@ -1,0 +1,46 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Dec  1 10:46:11 2017
+
+@author: benjamin-wuthe
+"""
+import pandas as pd
+import requests
+
+reader = pd.read_excel("vbb-haltestellen-entwicklertag.xlsx") # Liste der Haltestellen 
+apiKeyGoogle = 'AIzaSyC5PyGNYr_HOOCpa9I8Tp3GLeMjpwYaxro'
+df = pd.DataFrame(reader[:])
+splitter = ','
+liZipCode = []
+liAdress = []
+
+def getAdress(lat, lon):
+    urlRequest = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=' + str(lat) + ',' + str(lon) +  '&key='+apiKeyGoogle
+    data=requests.get(urlRequest).json()
+    answer = data['results'][0]
+    output = {
+                "formatted_address" : answer.get('formatted_address'),
+                "type": ",".join(answer.get('types')),
+                "postcode": ",".join([x['long_name'] for x in answer.get('address_components') 
+                                      if 'postal_code' in x.get('types')])
+            }
+    
+    return(output)
+
+#Liste der Adresse und PLZ erstellen
+for index, row in df.iterrows():
+    lat = row['LAT']
+    lon = row['LON']
+    myAdress = getAdress(lat,lon)
+    liZipCode.append(myAdress['postcode'])
+    liAdress.append(myAdress['formatted_address'].split(splitter)[0])
+
+liZipCode = pd.Series(liZipCode, name = 'ZipCode')
+liAdress = pd.Series(liAdress, name = 'Adress')
+df = pd.concat([df,liZipCode, liAdress], axis=1, join_axes=[df.index])
+
+writer=pd.ExcelWriter('HaltestellenInklPLZ.xlsx')
+df.to_excel(writer, index=False)
+writer.save()
+print ('DONE!')
