@@ -7,11 +7,14 @@ Created on Fri Dec  1 10:46:11 2017
 """
 import pandas as pd
 import requests
+import pprint
+pp =pprint.PrettyPrinter(indent=4)
 
 reader = pd.read_excel("vbb-haltestellen-entwicklertag.xlsx") # Liste der Haltestellen 
 apiKeyGoogle = 'AIzaSyA23uzWBRzUtoY2LCvehnS_YcLfgrsQF1M'
 apiKeyGoogle2 = 'AIzaSyC5PyGNYr_HOOCpa9I8Tp3GLeMjpwYaxro'
 df = pd.DataFrame(reader[:])
+df=df.drop(['lat','lon','KOORDINATE_X','KOORDINATE_Y'],axis=1)
 
 splitter = ','
 liZipCode = []
@@ -19,9 +22,6 @@ liAdress = []
 liBezirk=[]
 liBezirkSub=[]
 counter = 1
-
-import pprint
-pp =pprint.PrettyPrinter(indent=4)
 
 def apiKeyChanger(i):
 # Funktion wechselt den ApiKey bei jeder Anfrage, da auf 2.500 pro Key begrenzt
@@ -40,32 +40,25 @@ def getAdress(lat, lon, apiKey):
                 "type": ",".join(answer.get('types')),
                 "postcode": ",".join([x['long_name'] for x in answer.get('address_components') 
                                       if 'postal_code' in x.get('types')]),
-                "Bezirk_Sub": ",".join([x['long_name'] for x in answer.get('address_components') 
-                                      if 'sublocality_level_2' in x.get('types')]),
-                "Bezirk": ",".join([x['long_name'] for x in answer.get('address_components') 
-                                      if 'sublocality_level_1' in x.get('types')]),
             }
     pp.pprint(answer)
     return(output)
-
-
+    
 #Liste der Adresse und PLZ erstellen
 for index, row in df.iterrows():
     myAdress = getAdress(row['LAT'],row['LON'],apiKeyChanger(counter))
     counter +=1
     liZipCode.append(myAdress['postcode'])
     liAdress.append(myAdress['formatted_address'].split(splitter)[0])
-    liBezirk.append(myAdress['Bezirk'])
-    liBezirkSub.append(myAdress['Bezirk_Sub'])
 
+#
 liZipCode = pd.Series(liZipCode, name = 'ZipCode')
 liAdress = pd.Series(liAdress, name = 'Adress')
-liBezirk = pd.Series(liBezirk, name = 'Bezirk')
-liBezirkSub = pd.Series(liBezirkSub, name = 'Bezirk_Sub')
 
-df = pd.concat([df,liZipCode, liAdress, liBezirk, liBezirkSub], axis=1, join_axes=[df.index])
+df = pd.concat([df,liZipCode, liAdress], axis=1, join_axes=[df.index])
 
 writer=pd.ExcelWriter('HaltestellenInklPLZ.xlsx')
 df.to_excel(writer, index=False)
 writer.save()
+
 print ('======================================!DONE!======================================')
