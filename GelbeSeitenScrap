@@ -5,29 +5,19 @@ Created on Tue Nov 28 21:44:50 2017
 
 @author: benjamin-wuthe
 """
-
-
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
 
-ergProSeite = 15 #Anzahl der Suchergebnisse die auf Gelbeseiten.de abgebildet werden
+ergProSeite = 15 #Anzahl der Suchergebnisse die pro Seite auf Gelbeseiten.de abgebildet werden
 
-readerPLZ = pd.read_excel("Berliner PLZ.xlsx")
+readerPLZ = pd.read_excel("Berliner PLZ.xlsx") # Liste der Postleitzahlen 
+df = pd.DataFrame(readerPLZ[:])
 
-df = pd.DataFrame(readerPLZ[:3])
-dfObject = pd.DataFrame()
-#for index, row in df.iterrows():
-#   print row['Berliner PLZ']
-    
-lookingFor = ['Arzt', 'Supermarkt'] 
+# definieren wonach gesucht werden soll
+lookingFor = ['Arzt','Supermarkt','Apotheken', 'Krankenhaus','Kaufhaeuser','Kindergaerten','Bar','Baecker','Restaurant','diskotheken','kinos','hochschulen']
 
-
-Anzahl=[]
-PlzList=[]
-SuchObjekt=[]
-
-#Objekt zusammenstellen
+#Objekt Eigenschaften zusammenstellen
 objSuche=[]
 objName=[]
 objStreetAdress=[]
@@ -35,76 +25,89 @@ objPLZ=[]
 objBranche=[]
 objZipCode=[]
 
-for element in lookingFor:
-    print('Untersuche Branche: ' + element)
-    #print element + ' an Index ' + str(lookingFor.index(element) +"\n\n")
-#Die gesuchten Objekte durchgehen   
-    for index, row in df.iterrows():
-#Die PLZ durchgehen
-        
-        pageCount =1
-        
-        
-        try: 
-            
-            url = "https://www.gelbeseiten.de/" + element + "/berlin,," + str(row['Berliner PLZ']) + "/s" + str(pageCount)
-            r = requests.get(url)
-
-            html = r.text
+def splitSubCategory(myString):
+# Methode untersucht ob die Subkategorie unterteilt ist.
+# z.B. Ärzte werden als 'Ärzte: Allgemeinmedizin und Praktische Ärzte' angegeben
+# Returnwert ist somit nur 'Allgemeinmedizin und Praktische Ärzte'.
+    splitter = ':'
+    if splitter in myString:
+        start= (myString.find(splitter)+2)
+        return (myString[start:])
+    else:
+        return myString 
     
-            soup = BeautifulSoup(html)
+def changeCategory(myString):
+# Funktion betrachtet die Kategorie (Wonach gesucht wurde) und teilt diese in die korrekte
+# Oberkategorie ein.
+    listHealth = {'Apotheken', 'Krankenhaus'} 
+    listFreizeit ={'Bar','Restaurant','diskotheken','kinos'}
+    
+    if myString in listHealth:
+        return 'Health'
+    elif myString in listFreizeit:
+        return 'Freizeit'
+    else:
+        return myString
+
+
+#Die gesuchten Kategorie durchgehen   
+for element in lookingFor:
+    print('Untersuche Kategorie: ' + element)
+
+#Die PLZ durchgehen    
+    for index, row in df.iterrows():
+        pageCount =1 # Seitenzahl der Abfrage
+        repeat = True # Weiterer durchlauf auf der nächsten Seite 
+        
+        while repeat:
+            try: 
+                url = "https://www.gelbeseiten.de/" + element + "/berlin,," + str(row['Berliner PLZ']) + "/s" + str(pageCount)
+                r = requests.get(url)
+                html = r.text
+                soup = BeautifulSoup(html)
+                result = soup.find_all("span",{"class:", "gs_titel_anzahlTreffer"})
+    
+                # Objekt definieren
+                resultObjekt = soup.find_all("div",{"class:", "table"})
+                for dt in resultObjekt: # die einzelnen Objekte (Anzeigen) durchgehen
+
+    # Werbung umgehen, diese befindet sich grundsätzlich in anderen PLZ Gebieten
+    # Umgehen falls ein Objekt nicht alle Daten liefert                    
+                    try:
+                        if  (str(row['Berliner PLZ'])== dt.find(itemprop="postalCode").text 
+                             and (dt.find(itemprop="streetAddress") !=None)
+                             and (dt.find(itemprop="name") !=None)
+                             and (dt.find("div",{"class","branchen_box"}).find('span')!= None)):
+
+                            objName.append (dt.find(itemprop="name").text)
+                            objSuche.append (element)
+                            objStreetAdress.append(dt.find(itemprop="streetAddress").text)
+                            objPLZ.append (str(row['Berliner PLZ']))
+    #Subkategorie definieren
+                            resBranche = dt.find("div",{"class","branchen_box"})   
+                            objBranche.append(splitSubCategory(resBranche.find('span').text))
+
+    # Ojekte/Ergebnisse dem Dataframe hinzufügen
+                            dfObject =pd.DataFrame({'Category' : objSuche,
+                                                                'ZipCode':objPLZ,
+                                                                'SubCategory' : objBranche,
+                                                                'Name':objName,
+                                                                'Adress':objStreetAdress,})
+                            dfObject = dfObject[['ZipCode','Category','SubCategory','Name','Adress']]
+                    except:
+                        pass
+    # Durchlauf beenden sobald letzte Seite erreicht wurde
+                if (pageCount * ergProSeite >= int(result[0].text)):
+                    print('   Untersuche ' + element + ' in PLZ: ' + str(row['Berliner PLZ']) + '; Einträge: ' + str(result[0].text)+'; Seiten: ' + str(pageCount))
+                    repeat=False
+
+                pageCount +=1
             
-            result = soup.find_all("span",{"class:", "gs_titel_anzahlTreffer"})
-            print('   Untersuche PLZ: ' + str(row['Berliner PLZ']) + '   Anzahl: ' + str(result[0].text))
-            if result > pageCount:
-                print ('!!! ' + result + ' !!!')
-            
-            #anzahlSeiten = round((result/ergProSeite))
-
-            # Objekt definieren
-            
-            resultObjekt = soup.find_all("div",{"class:", "table"})
-            for dt in resultObjekt: # die einzelnen Objekte durchgehen
-
-                try:
-                    if  (str(row['Berliner PLZ'])== dt.find(itemprop="postalCode").text):
-# Werbung umgehen, diese befindet sich grundsätzlich in anderen PLZ Gebieten
-                        objName.append (dt.find(itemprop="name").text)
-                        objSuche.append (element)
-                        objStreetAdress.append(dt.find(itemprop="streetAddress").text)
-                        objPLZ.append (str(row['Berliner PLZ']))
-#Branche definieren
-                        resBranche = dt.find("div",{"class","branchen_box"})
-                        
-                        objBranche.append(resBranche.find('span').text)
-                       
-# Ojekte in Dataframe hinzufügen
-                        dfObject =pd.DataFrame({'Branch':objBranche ,'SuchObjekt' : objSuche,'Name':objName,'StreetAdress':objStreetAdress,'ZipCode':objPLZ})
-                except:
-                    pass
-            
-            if result[0]<=0:
-                print "Gibts nicht"
-            else:
-                print ( result[0].text)
-
-            Anzahl.append(result[0].text)
-            PlzList.append(row['Berliner PLZ'])
-            SuchObjekt.append(element) 
-            
-        except:
-            pass
-            
-print "------------------------------------------------------------------"
-
-df = pd.DataFrame({'PLZ' : PlzList, 'Anzahl' : Anzahl, 'SuchObjekt': SuchObjekt})
-
-PlzList.append(df)
-
-#df.({'Anhang':PlzList})
-
+            except:
+                repeat=False
+                pass
+                
 writer=pd.ExcelWriter('GelbeScrape.xlsx')
-dfObject.to_excel(writer,'PLZ_KPI')
+dfObject.to_excel(writer, index=False)
 writer.save()
-
-print ('done!')
+print ("-------------------------------!DONE!-------------------------------")
