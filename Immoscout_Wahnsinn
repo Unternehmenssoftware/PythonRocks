@@ -29,7 +29,7 @@ for immo in immoType:
             r=requests.get(url)
             soup=BeautifulSoup(r.text, 'lxml')
             dataset=soup.find_all("li")    
-            print(immo + ' ' + sell +' >>> Page ' + str(page))
+            print(immo + ' ' + sell +' >>> Page ' + str(page) + ' / ' + str(lastPage))
         
             for data in dataset:
                 try:
